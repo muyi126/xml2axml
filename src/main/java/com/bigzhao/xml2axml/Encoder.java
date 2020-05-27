@@ -42,14 +42,14 @@ public class Encoder {
     public byte[] encode(Context context,XmlPullParser p) throws XmlPullParserException, IOException {
         if (context==null) context=new Context();
         XmlChunk chunk=new XmlChunk(context);
-        //HashSet<String> strings=new HashSet<String>();
+        HashSet<String> strings=new HashSet<String>();
         TagChunk current=null;
         for (int i=p.getEventType();i!=XmlPullParser.END_DOCUMENT;i=p.next()){
             switch (i){
                 case XmlPullParser.START_DOCUMENT:
                     break;
                 case XmlPullParser.START_TAG:
-                   /* strings.add(p.getName());
+                    strings.add(p.getName());
                     strings.add(p.getPrefix());
                     strings.add(p.getNamespace());
                     int ac=p.getAttributeCount();
@@ -62,7 +62,7 @@ public class Encoder {
                     for (int j=p.getNamespaceCount(p.getDepth()-1);j<ac;++j){
                         strings.add(p.getNamespacePrefix(j));
                         strings.add(p.getNamespaceUri(j));
-                    }*/
+                    }
                     current=new TagChunk(current==null?chunk:current,p);
                     break;
                 case XmlPullParser.END_TAG:
@@ -70,7 +70,7 @@ public class Encoder {
                     current=c instanceof TagChunk?(TagChunk)c:null;
                     break;
                 case XmlPullParser.TEXT:
-                    //strings.add(p.getText());
+                    strings.add(p.getText());
                     break;
                 default:
                     break;

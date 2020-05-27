@@ -5,6 +5,7 @@ import android.text.TextUtils;
 import com.bigzhao.xml2axml.Encoder;
 import com.bigzhao.xml2axml.IntWriter;
 import com.bigzhao.xml2axml.NotImplementedException;
+import org.apache.commons.lang3.text.StrBuilder;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -19,7 +20,7 @@ import java.util.LinkedList;
  * Created by Roy on 15-10-4.
  */
 
-public class StringPoolChunk extends Chunk<StringPoolChunk.H>{
+public class StringPoolChunk extends Chunk<StringPoolChunk.H> {
 
     public StringPoolChunk(Chunk parent) {
         super(parent);
@@ -32,7 +33,9 @@ public class StringPoolChunk extends Chunk<StringPoolChunk.H>{
         public int stringPoolOffset;
         public int stylePoolOffset;
 
-        public H() {super(ChunkType.StringPool);}
+        public H() {
+            super(ChunkType.StringPool);
+        }
 
         @Override
         public void writeEx(IntWriter w) throws IOException {
@@ -44,81 +47,95 @@ public class StringPoolChunk extends Chunk<StringPoolChunk.H>{
         }
     }
 
-    public static class RawString{
+    public static class RawString {
 
         StringItem origin;
         int byteLength;
         char[] cdata;
         byte[] bdata;
 
-        int length(){
-            if (cdata!=null)return cdata.length;
+        int length() {
+            if (cdata != null) return cdata.length;
             return origin.string.length();
-        };
+        }
 
-        int padding(){
-            if (cdata!=null){
-                return (cdata.length*2+4)&2;
-            }else{
+        ;
+
+        int padding() {
+            if (cdata != null) {
+                return (cdata.length * 2 + 4) & 2;
+            } else {
                 //return (4-((bdata.length+3)&3))&3;
                 return 0;
             }
         }
 
-        int size(){
-            if (cdata!=null){
-                return cdata.length*2+4+padding();
-            }else{
-               return bdata.length+3+padding();
+        int size() {
+            if (cdata != null) {
+//                return cdata.length * 2 + 4 + padding();
+                return cdata.length * 2 + 4;
+            } else {
+                return bdata.length + 3 + padding();
             }
         }
 
         void write(IntWriter w) throws IOException {
-            if (cdata!=null) {
-                int pos=w.getPos();
-                w.write((short)length());
-                for (char c:cdata) w.write(c);
-                w.write((short)0);
-                if (padding()==2)w.write((short)0);
-                assert size()==w.getPos()-pos:size()+","+(w.getPos()-pos);
-            }else{
-                int pos=w.getPos();
-                w.write((byte)length());
-                w.write((byte)bdata.length);
-                for (byte c:bdata) w.write(c);
-                w.write((byte)0);
-                int p=padding();
-                for (int i=0;i<p;++i) w.write((byte)0);
-                assert size()==w.getPos()-pos:size()+","+(w.getPos()-pos);
+            if (cdata != null) {
+                int pos = w.getPos();
+                w.write((short) length());
+                for (char c : cdata) {
+                    w.write(c);
+                }
+                w.write((short) 0);
+//                if (padding() == 2) {
+//                    w.write((short) 0);
+//                }
+                assert size() == w.getPos() - pos : size() + "," + (w.getPos() - pos);
+            } else {
+                int pos = w.getPos();
+                w.write((byte) length());
+                w.write((byte) bdata.length);
+                for (byte c : bdata) {
+                    w.write(c);
+                }
+                w.write((byte) 0);
+                int p = padding();
+                for (int i = 0; i < p; ++i) {
+                    w.write((byte) 0);
+                }
+                assert size() == w.getPos() - pos : size() + "," + (w.getPos() - pos);
             }
         }
     }
 
-    public enum Encoding{UNICODE,UTF8}
+    public enum Encoding {UNICODE, UTF8}
+
     public int[] stringsOffset;
     public int[] stylesOffset;
     public ArrayList<RawString> rawStrings;
 
-    public Encoding encoding= Encoder.Config.encoding;
+    public Encoding encoding = Encoder.Config.encoding;
 
     @Override
     public void preWrite() {
-        rawStrings=new ArrayList<RawString>();
-        LinkedList<Integer> offsets=new LinkedList<Integer>();
-        int off=0;
-        int i=0;
-        if (encoding==Encoding.UNICODE) {
-            for (LinkedList<StringItem> ss: map.values()) {
-                for (StringItem s:ss) {
+        rawStrings = new ArrayList<RawString>();
+        LinkedList<Integer> offsets = new LinkedList<Integer>();
+        int off = 0;
+        int i = 0;
+        if (encoding == Encoding.UNICODE) {
+            for (LinkedList<StringItem> ss : map.values()) {
+                for (int k = 0; k < ss.size(); k++) {
+                    StringItem s = ss.get(k);
                     RawString r = new RawString();
                     r.cdata = s.string.toCharArray();
                     r.origin = s;
                     rawStrings.add(r);
                 }
             }
-        }else{
-            for (LinkedList<StringItem> ss: map.values()) {
-                for (StringItem s:ss) {
+        } else {
+            for (LinkedList<StringItem> ss : map.values()) {
+                for (int k = 0; k < ss.size(); k++) {
+                    StringItem s = ss.get(k);
                     RawString r = new RawString();
                     r.bdata = s.string.getBytes(Charset.forName("UTF-8"));
                     r.origin = s;
@@ -132,49 +149,100 @@ public class StringPoolChunk extends Chunk<StringPoolChunk.H>{
             public int compare(RawString lhs, RawString rhs) {
                 int l = lhs.origin.id;
                 int r = rhs.origin.id;
-                if (l == -1) l = Integer.MAX_VALUE;
-                if (r == -1) r = Integer.MAX_VALUE;
+                if (l == -1) {
+                    l = Integer.MAX_VALUE;
+                }
+                if (r == -1) {
+                    r = Integer.MAX_VALUE;
+                }
                 return l - r;
             }
         });
-        for (RawString r:rawStrings) {
+        for (int k = 0; k < rawStrings.size(); k++) {
+            RawString r = rawStrings.get(k);
             offsets.add(off);
-            off += r.size();
+            int tmp = r.size();
+            off += tmp;
         }
-        header.stringCount=rawStrings.size();
-        header.styleCount=0;
-        header.size=off+header.headerSize+header.stringCount*4+header.styleCount*4;
-        header.stringPoolOffset=offsets.size()*4+header.headerSize;
-        header.stylePoolOffset =0;
-        stringsOffset=new int[offsets.size()];
-        if (encoding==Encoding.UTF8) header.flags|=0x100;
-        i=0;
-        for (int x:offsets) stringsOffset[i++]=x;
-        stylesOffset=new int[0];
+        header.stringCount = rawStrings.size();
+        header.styleCount = 0;
+        header.size = off + header.headerSize + header.stringCount * 4 + header.styleCount * 4;
+        header.stringPoolOffset = offsets.size() * 4 + header.headerSize;
+        header.stylePoolOffset = 0;
+        stringsOffset = new int[offsets.size()];
+        checkHeader(header, offsets, off);
+
+
+        if (encoding == Encoding.UTF8) {
+            header.flags |= 0x100;
+        }
+        i = 0;
+        for (int k = 0; k < offsets.size(); k++) {
+            int x = offsets.get(k);
+            stringsOffset[i++] = x;
+        }
+        stylesOffset = new int[0];
+    }
+
+    private void checkHeader(H header, LinkedList<Integer> offsets, int off) {
+        int size = ((header.stylePoolOffset == 0) ? header.size : header.stylePoolOffset) - header.stringPoolOffset;
+        int d = (size % 4);
+        if (d != 0) {
+            StrBuilder sd = new StrBuilder();
+//            for (int j = 0; j < d; j++) {
+            sd.append("0");
+//            }
+            String sds = sd.build();
+            StringItem s = new StringItem("", sds);
+            RawString r = new RawString();
+            r.cdata = s.string.toCharArray();
+            r.origin = s;
+            rawStrings.add(r);
+
+            offsets.add(off);
+            int tmp = r.size();
+            off += tmp;
+
+            header.stringCount = rawStrings.size();
+            header.styleCount = 0;
+            header.size = off + header.headerSize + header.stringCount * 4 + header.styleCount * 4;
+            header.stringPoolOffset = offsets.size() * 4 + header.headerSize;
+            header.stylePoolOffset = 0;
+            stringsOffset = new int[offsets.size()];
+            checkHeader(header, offsets, off);
+        }
+
     }
 
     @Override
     public void writeEx(IntWriter w) throws IOException {
-        for (int i:stringsOffset) w.write(i);
-        for (int i:stylesOffset) w.write(i);
-        for (RawString r:rawStrings) r.write(w);
+        for (int i : stringsOffset) {
+            w.write(i);
+        }
+        for (int i : stylesOffset) {
+            w.write(i);
+        }
+        for (RawString r : rawStrings) {
+            r.write(w);
+        }
         //TODO styles;
     }
 
 
-    public class StringItem{
+    public class StringItem {
         public String namespace;
         public String string;
-        public int id=-1;;
+        public int id = -1;
+        ;
 
-        public StringItem(String s){
-            string=s;
-            namespace=null;
+        public StringItem(String s) {
+            string = s;
+            namespace = null;
         }
 
-        public StringItem(String namespace,String s){
-            string=s;
-            this.namespace=namespace;
+        public StringItem(String namespace, String s) {
+            string = s;
+            this.namespace = namespace;
             genId();
         }
 
@@ -183,52 +251,62 @@ public class StringPoolChunk extends Chunk<StringPoolChunk.H>{
             genId();
         }
 
-        public void genId(){
-            if (namespace==null) return;
-            String pkg="http://schemas.android.com/apk/res-auto".equals(namespace)?getContext().getPackageName():
-                    namespace.startsWith("http://schemas.android.com/apk/res/")?namespace.substring("http://schemas.android.com/apk/res/".length()):null;
-            if (pkg==null) return;
-            id=getContext().getResources().getIdentifier(string,"attr",pkg);
+        public void genId() {
+            if (namespace == null) return;
+            String pkg = "http://schemas.android.com/apk/res-auto".equals(namespace) ? getContext().getPackageName() :
+                    namespace.startsWith("http://schemas.android.com/apk/res/") ? namespace.substring("http://schemas.android.com/apk/res/".length()) : null;
+            if (pkg == null) return;
+            id = getContext().getResources().getIdentifier(string, "attr", pkg);
         }
     }
 
-    private HashMap<String,LinkedList<StringItem>> map=new HashMap<String,LinkedList<StringItem>>();
-    private String preHandleString(String s){
+    private HashMap<String, LinkedList<StringItem>> map = new HashMap<String, LinkedList<StringItem>>();
+
+    private String preHandleString(String s) {
         return s;
     }
-    public void addString(String s){
-        s=preHandleString(s);
-        LinkedList<StringItem> list=map.get(s);
-        if (list==null) map.put(s,list=new LinkedList<StringItem>());
-        if (!list.isEmpty()) return;
-        StringItem item=new StringItem(s);
+
+    public void addString(String s) {
+        s = preHandleString(s);
+        LinkedList<StringItem> list = map.get(s);
+        if (list == null) {
+            map.put(s, list = new LinkedList<StringItem>());
+        }
+        if (!list.isEmpty()) {
+            return;
+        }
+        StringItem item = new StringItem(s);
         list.add(item);
     }
 
-    public void addString(String namespace, String s){
-        namespace=preHandleString(namespace);
-        s=preHandleString(s);
-        LinkedList<StringItem> list=map.get(s);
-        if (list==null) map.put(s,list=new LinkedList<StringItem>());
-        for (StringItem e:list) if (e.namespace==null||e.namespace.equals(namespace)) {
-            e.setNamespace(namespace);
-            return;
+    public void addString(String namespace, String s) {
+        namespace = preHandleString(namespace);
+        s = preHandleString(s);
+        LinkedList<StringItem> list = map.get(s);
+        if (list == null) {
+            map.put(s, list = new LinkedList<StringItem>());
         }
-        StringItem item=new StringItem(namespace,s);
+        for (StringItem e : list) {
+            if (e.namespace == null || e.namespace.equals(namespace)) {
+                e.setNamespace(namespace);
+                return;
+            }
+        }
+        StringItem item = new StringItem(namespace, s);
         list.add(item);
     }
 
     @Override
     public int stringIndex(String namespace, String s) {
-        namespace=preHandleString(namespace);
-        s=preHandleString(s);
+        namespace = preHandleString(namespace);
+        s = preHandleString(s);
         if (TextUtils.isEmpty(s)) return -1;
-        int l=rawStrings.size();
-        for (int i=0;i<l;++i){
-            StringItem item=rawStrings.get(i).origin;
-            if (s.equals(item.string)&&(TextUtils.isEmpty(namespace)||namespace.equals(item.namespace))) return i;
+        int l = rawStrings.size();
+        for (int i = 0; i < l; ++i) {
+            StringItem item = rawStrings.get(i).origin;
+            if (s.equals(item.string) && (TextUtils.isEmpty(namespace) || namespace.equals(item.namespace))) return i;
         }
-        throw new RuntimeException("String: '"+s+"' not found");
+        throw new RuntimeException("String: '" + s + "' not found");
         //return -1;
     }
 }
